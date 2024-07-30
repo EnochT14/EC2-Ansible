@@ -1,0 +1,51 @@
+---
+- name: Provision AWS Services Micro
+  hosts: localhost
+  gather_facts: no
+  vars:
+    region: us-east-1
+    instance_type: t2.micro
+    ami_id: ami-0c94855ba956942c0
+    key_name: your-aws-key
+    security_group_name: my-security-group
+    s3_bucket_name: my-unique-s3-bucket
+
+  tasks:
+    - name: Create a security group
+      amazon.aws.ec2_group:
+        name: "{{ security_group_name }}"
+        description: "Security group for my EC2 instance"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            ports:
+              - 22
+              - 80
+              - 443
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+
+    - name: Launch an EC2 instance
+      amazon.aws.ec2:
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "{{ ami_id }}"
+        region: "{{ region }}"
+        group: "{{ security_group_name }}"
+        wait: yes
+        count: 1
+        vpc_subnet_id: subnet-xxxxxxxx
+        assign_public_ip: yes
+      register: ec2
+
+    - name: Create an S3 bucket
+      amazon.aws.s3_bucket:
+        name: "{{ s3_bucket_name }}"
+        region: "{{ region }}"
+        state: present
+
+    - name: Instance details
+      debug:
+        msg: "EC2 instance {{ ec2.instances[0].id }} is running at {{ ec2.instances[0].public_dns_name }}"
